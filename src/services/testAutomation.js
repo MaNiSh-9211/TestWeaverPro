@@ -199,16 +199,96 @@ class TestAutomationService {
         const steps = [];
         const story = userStory.toLowerCase();
         
+        console.log('Parsing user story:', userStory);
+        
         // Extract credentials from user story
         const credentials = this.extractCredentials(userStory);
+        console.log('Extracted credentials:', credentials);
         
-        // Login flow with extracted credentials
-        if (story.includes('login') || story.includes('sign in') || story.includes('enter the user name and password')) {
+        // Parse the user story step by step based on sequence
+        const lines = userStory.split('\n').map(line => line.trim()).filter(line => line);
+        
+        for (const line of lines) {
+            const lowerLine = line.toLowerCase();
+            
+            // Email filling step
+            if (lowerLine.includes('type email') || lowerLine.includes('enter email') || lowerLine.includes('email section')) {
+                const emailMatch = line.match(/["']([^"']*@[^"']*)["']/);
+                const email = emailMatch ? emailMatch[1] : credentials.username;
+                
+                steps.push({
+                    action: 'fill',
+                    description: `Fill email field with: ${email}`,
+                    selector: 'input[type="email"], input[name*="email"], input[id*="email"], input[placeholder*="email"], input[name*="user"], input[id*="user"]',
+                    value: email
+                });
+            }
+            
+            // Password filling step
+            else if (lowerLine.includes('enter password') || lowerLine.includes('type password') || lowerLine.includes('password as')) {
+                const passwordMatch = line.match(/["']([^"']*)["']/);
+                const password = passwordMatch ? passwordMatch[1] : credentials.password;
+                
+                steps.push({
+                    action: 'fill',
+                    description: `Fill password field with: ${password}`,
+                    selector: 'input[type="password"], input[name*="pass"], input[id*="pass"]',
+                    value: password
+                });
+            }
+            
+            // Login button click
+            else if (lowerLine.includes('click on login') || lowerLine.includes('login button')) {
+                steps.push({
+                    action: 'click',
+                    description: 'Click login button',
+                    selector: 'button[type="submit"], input[type="submit"], button:has-text("login"), button:has-text("Login"), button:has-text("Sign in")'
+                });
+                
+                // Add wait after login
+                steps.push({
+                    action: 'wait',
+                    description: 'Wait for page to load after login',
+                    duration: 3000
+                });
+            }
+            
+            // Bookmark click
+            else if (lowerLine.includes('click on any tag') && lowerLine.includes('bookmark')) {
+                steps.push({
+                    action: 'click',
+                    description: 'Click on bookmark tag',
+                    selector: 'a:has-text("bookmarks"), button:has-text("bookmarks"), [href*="bookmark"], [class*="bookmark"]'
+                });
+                
+                // Add wait after bookmark click
+                steps.push({
+                    action: 'wait',
+                    description: 'Wait for bookmark page to load',
+                    duration: 2000
+                });
+            }
+            
+            // General click actions for other elements
+            else if (lowerLine.includes('click on') && !lowerLine.includes('login')) {
+                const textMatch = line.match(/["']([^"']*)["']/);
+                const clickText = textMatch ? textMatch[1] : 'interactive element';
+                
+                steps.push({
+                    action: 'click',
+                    description: `Click on ${clickText}`,
+                    selector: `button:has-text("${clickText}"), a:has-text("${clickText}"), [href*="${clickText}"], [class*="${clickText}"]`
+                });
+            }
+        }
+        
+        // Fallback for simple login cases
+        if (steps.length === 0 && (story.includes('login') || story.includes('sign in'))) {
             if (credentials.username) {
                 steps.push({
                     action: 'fill',
                     description: `Fill username field with: ${credentials.username}`,
-                    selector: 'input[type="text"], input[name*="user"], input[id*="user"], input[placeholder*="user"]',
+                    selector: 'input[type="email"], input[name*="email"], input[id*="email"], input[name*="user"], input[id*="user"]',
                     value: credentials.username
                 });
             }
@@ -227,85 +307,76 @@ class TestAutomationService {
                 description: 'Click login button',
                 selector: 'button[type="submit"], input[type="submit"], button:has-text("login"), button:has-text("Login"), button:has-text("Sign in")'
             });
-            
-            // Add wait for page load after login
-            steps.push({
-                action: 'wait',
-                description: 'Wait for page to load after login',
-                duration: 5000
-            });
         }
         
-        // Delete functionality
-        if (story.includes('delete') && story.includes('question')) {
-            steps.push({
-                action: 'click',
-                description: 'Click delete question button',
-                selector: 'button:has-text("delete"), button:has-text("Delete"), button:has-text("delete question"), button:has-text("Delete Question")'
-            });
-        }
-        
-        // General fill actions (non-login)
-        if ((story.includes('fill') || story.includes('enter') || story.includes('type')) && !story.includes('password')) {
-            steps.push({
-                action: 'fill',
-                description: 'Fill form field',
-                selector: 'input[type="text"], input[type="email"], textarea',
-                value: 'test@example.com'
-            });
-        }
-        
-        // General click actions (non-login)
-        if (story.includes('click') && !story.includes('login')) {
-            steps.push({
-                action: 'click',
-                description: 'Click on interactive element',
-                selector: 'button, input[type="button"], input[type="submit"], a'
-            });
-        }
-        
-        // Add wait steps for slow loading
-        if (story.includes('slowly') || story.includes('take some time')) {
-            steps.push({
-                action: 'wait',
-                description: 'Wait for slow loading content',
-                duration: 3000
-            });
-        }
-        
+        console.log('Generated test steps:', steps);
         return steps;
     }
     
     extractCredentials(userStory) {
         const credentials = {};
         
-        // Extract username - look for patterns like "username is : manish-9211"
-        const usernameMatches = [
-            /username.*?is\s*:?\s*([^\s\n]+)/i,
-            /user.*?name.*?:?\s*([^\s\n]+)/i,
-            /username.*?:?\s*([^\s\n]+)/i
+        // Extract email from quoted strings
+        const emailMatches = [
+            /["']([^"']*@[^"']*)["']/,
+            /email\s*["']([^"']*@[^"']*)["']/i,
+            /username\s*["']([^"']*@[^"']*)["']/i
         ];
         
-        for (const pattern of usernameMatches) {
+        for (const pattern of emailMatches) {
             const match = userStory.match(pattern);
-            if (match) {
+            if (match && match[1]) {
                 credentials.username = match[1].trim();
                 break;
             }
         }
         
-        // Extract password - look for patterns like "password is kaku"
+        // Extract password from quoted strings
         const passwordMatches = [
-            /password.*?is\s*:?\s*([^\s\n]+)/i,
-            /password.*?:?\s*([^\s\n]+)/i,
-            /pass.*?:?\s*([^\s\n]+)/i
+            /password\s*as\s*["']([^"']*)["']/i,
+            /password\s*["']([^"']*)["']/i,
+            /pass\s*["']([^"']*)["']/i,
+            /["']([^"']*[A-Z][^"']*[0-9][^"']*)["']/ // Pattern for passwords with uppercase and numbers
         ];
         
         for (const pattern of passwordMatches) {
             const match = userStory.match(pattern);
-            if (match) {
+            if (match && match[1]) {
                 credentials.password = match[1].trim();
                 break;
+            }
+        }
+        
+        // Fallback patterns without quotes
+        if (!credentials.username) {
+            const usernameMatches = [
+                /username.*?is\s*:?\s*([^\s\n]+)/i,
+                /user.*?name.*?:?\s*([^\s\n]+)/i,
+                /username.*?:?\s*([^\s\n]+)/i
+            ];
+            
+            for (const pattern of usernameMatches) {
+                const match = userStory.match(pattern);
+                if (match) {
+                    credentials.username = match[1].trim();
+                    break;
+                }
+            }
+        }
+        
+        if (!credentials.password) {
+            const passwordMatches = [
+                /password.*?is\s*:?\s*([^\s\n]+)/i,
+                /password.*?:?\s*([^\s\n]+)/i,
+                /pass.*?:?\s*([^\s\n]+)/i
+            ];
+            
+            for (const pattern of passwordMatches) {
+                const match = userStory.match(pattern);
+                if (match) {
+                    credentials.password = match[1].trim();
+                    break;
+                }
             }
         }
         
