@@ -91,27 +91,70 @@ class TestAutomationService {
             // Step 3: Generate test steps based on user story
             const testSteps = this.generateTestSteps(userStory, pageContent);
             
-            // Step 4: Execute test steps
-            for (const step of testSteps) {
+            // Step 4: Execute test steps with individual screenshots
+            for (let i = 0; i < testSteps.length; i++) {
+                const step = testSteps[i];
                 try {
+                    console.log(`Executing step ${i + 1}/${testSteps.length}: ${step.description}`);
+                    
+                    // Take screenshot BEFORE executing the step
+                    const beforeScreenshot = await page.screenshot({ fullPage: true });
+                    testResult.screenshots.push({
+                        description: `Step ${i + 1} - Before: ${step.description}`,
+                        timestamp: new Date(),
+                        data: beforeScreenshot.toString('base64'),
+                        stepNumber: i + 1,
+                        stepAction: step.action,
+                        stepStatus: 'before'
+                    });
+                    
+                    // Execute the step
                     await this.executeStep(page, step);
+                    
+                    // Take screenshot AFTER executing the step
+                    const afterScreenshot = await page.screenshot({ fullPage: true });
+                    testResult.screenshots.push({
+                        description: `Step ${i + 1} - After: ${step.description}`,
+                        timestamp: new Date(),
+                        data: afterScreenshot.toString('base64'),
+                        stepNumber: i + 1,
+                        stepAction: step.action,
+                        stepStatus: 'after'
+                    });
+                    
                     testResult.steps.push({
                         ...step,
                         success: true,
-                        timestamp: new Date()
+                        timestamp: new Date(),
+                        stepNumber: i + 1
                     });
+                    
                 } catch (error) {
-                    console.error(`Step failed: ${step.action}`, error);
+                    console.error(`Step ${i + 1} failed: ${step.action}`, error);
+                    
+                    // Take screenshot of the error state
+                    const errorScreenshot = await page.screenshot({ fullPage: true });
+                    testResult.screenshots.push({
+                        description: `Step ${i + 1} - Error: ${step.description} - ${error.message}`,
+                        timestamp: new Date(),
+                        data: errorScreenshot.toString('base64'),
+                        stepNumber: i + 1,
+                        stepAction: step.action,
+                        stepStatus: 'error'
+                    });
+                    
                     testResult.steps.push({
                         ...step,
                         success: false,
                         error: error.message,
-                        timestamp: new Date()
+                        timestamp: new Date(),
+                        stepNumber: i + 1
                     });
                     testResult.errors.push({
                         step: step.action,
                         error: error.message,
-                        timestamp: new Date()
+                        timestamp: new Date(),
+                        stepNumber: i + 1
                     });
                     break; // Fail-fast execution
                 }

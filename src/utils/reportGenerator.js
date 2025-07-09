@@ -204,35 +204,102 @@ class ReportGenerator {
     }
 
     renderScreenshots(screenshots) {
+        // Group screenshots by step number
+        const screenshotsByStep = {};
+        screenshots.forEach(screenshot => {
+            if (screenshot.stepNumber) {
+                if (!screenshotsByStep[screenshot.stepNumber]) {
+                    screenshotsByStep[screenshot.stepNumber] = [];
+                }
+                screenshotsByStep[screenshot.stepNumber].push(screenshot);
+            } else {
+                // Handle initial and final screenshots
+                if (!screenshotsByStep['general']) {
+                    screenshotsByStep['general'] = [];
+                }
+                screenshotsByStep['general'].push(screenshot);
+            }
+        });
+        
         return `
             <div class="row mb-4">
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header">
-                            <h5><i class="fas fa-camera"></i> Screenshots</h5>
+                            <h5><i class="fas fa-camera"></i> Screenshots by Test Step</h5>
+                            <p class="text-muted mb-0">Screenshots captured before and after each test action</p>
                         </div>
                         <div class="card-body">
-                            <div class="row">
-                                ${screenshots.map(screenshot => `
-                                    <div class="col-md-6 mb-3">
-                                        <div class="card">
-                                            <div class="card-header">
-                                                <h6>${screenshot.description}</h6>
-                                                <small class="text-muted">${new Date(screenshot.timestamp).toLocaleString()}</small>
-                                            </div>
-                                            <div class="card-body text-center">
-                                                <img src="data:image/png;base64,${screenshot.data}" 
-                                                     alt="${screenshot.description}" 
-                                                     class="img-fluid">
-                                            </div>
+                            ${Object.keys(screenshotsByStep).map(stepKey => {
+                                const stepScreenshots = screenshotsByStep[stepKey];
+                                const isGeneralStep = stepKey === 'general';
+                                
+                                return `
+                                    <div class="step-screenshot-group mb-4">
+                                        <h6 class="text-primary mb-3">
+                                            ${isGeneralStep ? 'General Screenshots' : `Step ${stepKey} Screenshots`}
+                                        </h6>
+                                        <div class="row">
+                                            ${stepScreenshots.map((screenshot, index) => {
+                                                const statusBadge = screenshot.stepStatus === 'before' ? 'bg-info' : 
+                                                                   screenshot.stepStatus === 'after' ? 'bg-success' : 
+                                                                   screenshot.stepStatus === 'error' ? 'bg-danger' : 'bg-secondary';
+                                                
+                                                return `
+                                                    <div class="col-md-6 mb-3">
+                                                        <div class="card">
+                                                            <div class="card-header bg-light">
+                                                                <div class="d-flex justify-content-between align-items-center">
+                                                                    <h6 class="mb-0">${screenshot.description}</h6>
+                                                                    ${screenshot.stepStatus ? `<span class="badge ${statusBadge}">${screenshot.stepStatus.toUpperCase()}</span>` : ''}
+                                                                </div>
+                                                                <small class="text-muted">
+                                                                    ${new Date(screenshot.timestamp).toLocaleString()}
+                                                                    ${screenshot.stepAction ? ` | Action: ${screenshot.stepAction}` : ''}
+                                                                </small>
+                                                            </div>
+                                                            <div class="card-body p-2">
+                                                                <img src="data:image/png;base64,${screenshot.data}" 
+                                                                     alt="${screenshot.description}" 
+                                                                     class="img-fluid rounded"
+                                                                     style="cursor: pointer;"
+                                                                     onclick="openScreenshotModal(this)">
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                `;
+                                            }).join('')}
                                         </div>
                                     </div>
-                                `).join('')}
-                            </div>
+                                `;
+                            }).join('')}
                         </div>
                     </div>
                 </div>
             </div>
+            
+            <!-- Screenshot Modal -->
+            <div class="modal fade" id="screenshotModal" tabindex="-1">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Screenshot</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center">
+                            <img id="modalScreenshot" src="" alt="Screenshot" class="img-fluid">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <script>
+                function openScreenshotModal(img) {
+                    const modal = new bootstrap.Modal(document.getElementById('screenshotModal'));
+                    document.getElementById('modalScreenshot').src = img.src;
+                    modal.show();
+                }
+            </script>
         `;
     }
 

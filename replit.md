@@ -10,6 +10,7 @@ Preferred communication style: Simple, everyday language.
 Browser preference: Use Playwright's built-in browser (no external system browser dependencies)
 Testing requirement: Extract actual credentials from user stories, perform real browser automation
 Local development: System must work on local machines without system browser installed
+Screenshot requirement: Capture screenshots for each individual test step with proper labels (before/after/error states)
 
 ## System Architecture
 
