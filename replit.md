@@ -7,6 +7,9 @@ TestWeaver is a backend service that automates the generation and execution of t
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+Browser preference: Use Playwright's built-in browser (no external system browser dependencies)
+Testing requirement: Extract actual credentials from user stories, perform real browser automation
+Local development: System must work on local machines without system browser installed
 
 ## System Architecture
 

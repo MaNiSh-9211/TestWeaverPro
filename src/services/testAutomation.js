@@ -9,21 +9,27 @@ class TestAutomationService {
 
     async initializeBrowser() {
         if (!this.browser) {
-            this.browser = await chromium.launch({
-                headless: true,
-                executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
-                args: [
-                    '--no-sandbox', 
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-extensions',
-                    '--disable-gpu',
-                    '--disable-web-security',
-                    '--allow-running-insecure-content',
-                    '--disable-features=VizDisplayCompositor'
-                ]
-            });
-            console.log('Browser initialized with system Chromium');
+            try {
+                // Try to use Playwright's built-in browser
+                this.browser = await chromium.launch({
+                    headless: true,
+                    args: [
+                        '--no-sandbox', 
+                        '--disable-setuid-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-extensions',
+                        '--disable-gpu',
+                        '--disable-web-security',
+                        '--allow-running-insecure-content',
+                        '--disable-features=VizDisplayCompositor'
+                    ]
+                });
+                console.log('Browser initialized with Playwright built-in Chromium');
+            } catch (error) {
+                console.log('Browser initialization failed:', error.message);
+                console.log('Please install Playwright browsers by running: npx playwright install chromium');
+                throw new Error('Browser not available. Run "npx playwright install chromium" to install the browser.');
+            }
         }
         return this.browser;
     }
