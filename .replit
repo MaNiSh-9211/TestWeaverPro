@@ -22,7 +22,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "node server-new.js"
+args = "node server.js"
 waitForPort = 5000
 
 [[ports]]

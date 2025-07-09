@@ -91,9 +91,10 @@ Screenshot requirement: Capture screenshots for each individual test step with p
 ## Deployment Strategy
 
 ### Development Setup
-- **Entry Point**: `server.js`
-- **Start Command**: `npm start`
+- **Entry Point**: `server.js` (updated with full API endpoints)
+- **Start Command**: `npm start` (runs `node server.js`)
 - **Dependencies**: All dependencies managed via npm
+- **Note**: Consolidated `server-new.js` functionality into `server.js` for consistency
 
 ### Production Considerations
 - **Database**: MongoDB with proper indexing for performance
