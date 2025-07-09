@@ -11,9 +11,19 @@ class TestAutomationService {
         if (!this.browser) {
             this.browser = await chromium.launch({
                 headless: true,
-                args: ['--no-sandbox', '--disable-setuid-sandbox']
+                executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+                args: [
+                    '--no-sandbox', 
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-extensions',
+                    '--disable-gpu',
+                    '--disable-web-security',
+                    '--allow-running-insecure-content',
+                    '--disable-features=VizDisplayCompositor'
+                ]
             });
-            console.log('Browser initialized');
+            console.log('Browser initialized with system Chromium');
         }
         return this.browser;
     }
@@ -137,22 +147,57 @@ class TestAutomationService {
     }
 
     generateTestSteps(userStory, pageContent) {
-        // Simple test step generation based on user story keywords
         const steps = [];
-        
-        // Convert user story to lowercase for easier matching
         const story = userStory.toLowerCase();
         
-        // Basic step generation based on common user story patterns
-        if (story.includes('click') || story.includes('button')) {
+        // Extract credentials from user story
+        const credentials = this.extractCredentials(userStory);
+        
+        // Login flow with extracted credentials
+        if (story.includes('login') || story.includes('sign in') || story.includes('enter the user name and password')) {
+            if (credentials.username) {
+                steps.push({
+                    action: 'fill',
+                    description: `Fill username field with: ${credentials.username}`,
+                    selector: 'input[type="text"], input[name*="user"], input[id*="user"], input[placeholder*="user"]',
+                    value: credentials.username
+                });
+            }
+            
+            if (credentials.password) {
+                steps.push({
+                    action: 'fill',
+                    description: `Fill password field with: ${credentials.password}`,
+                    selector: 'input[type="password"], input[name*="pass"], input[id*="pass"]',
+                    value: credentials.password
+                });
+            }
+            
             steps.push({
                 action: 'click',
-                description: 'Click on interactive element',
-                selector: 'button, input[type="button"], input[type="submit"], a'
+                description: 'Click login button',
+                selector: 'button[type="submit"], input[type="submit"], button:has-text("login"), button:has-text("Login"), button:has-text("Sign in")'
+            });
+            
+            // Add wait for page load after login
+            steps.push({
+                action: 'wait',
+                description: 'Wait for page to load after login',
+                duration: 5000
             });
         }
         
-        if (story.includes('fill') || story.includes('enter') || story.includes('type')) {
+        // Delete functionality
+        if (story.includes('delete') && story.includes('question')) {
+            steps.push({
+                action: 'click',
+                description: 'Click delete question button',
+                selector: 'button:has-text("delete"), button:has-text("Delete"), button:has-text("delete question"), button:has-text("Delete Question")'
+            });
+        }
+        
+        // General fill actions (non-login)
+        if ((story.includes('fill') || story.includes('enter') || story.includes('type')) && !story.includes('password')) {
             steps.push({
                 action: 'fill',
                 description: 'Fill form field',
@@ -161,61 +206,185 @@ class TestAutomationService {
             });
         }
         
-        if (story.includes('search')) {
+        // General click actions (non-login)
+        if (story.includes('click') && !story.includes('login')) {
             steps.push({
-                action: 'search',
-                description: 'Perform search',
-                selector: 'input[type="search"], input[name*="search"], input[placeholder*="search"]',
-                value: 'test search query'
+                action: 'click',
+                description: 'Click on interactive element',
+                selector: 'button, input[type="button"], input[type="submit"], a'
             });
         }
         
-        if (story.includes('login') || story.includes('sign in')) {
+        // Add wait steps for slow loading
+        if (story.includes('slowly') || story.includes('take some time')) {
             steps.push({
-                action: 'login',
-                description: 'Login process',
-                selector: 'input[type="email"], input[type="text"]',
-                value: 'test@example.com'
+                action: 'wait',
+                description: 'Wait for slow loading content',
+                duration: 3000
             });
         }
-        
-        // Always add a scroll step to test page interaction
-        steps.push({
-            action: 'scroll',
-            description: 'Scroll page to test responsiveness'
-        });
-        
-        // Add wait step for dynamic content
-        steps.push({
-            action: 'wait',
-            description: 'Wait for page to load completely',
-            duration: 2000
-        });
         
         return steps;
+    }
+    
+    extractCredentials(userStory) {
+        const credentials = {};
+        
+        // Extract username - look for patterns like "username is : manish-9211"
+        const usernameMatches = [
+            /username.*?is\s*:?\s*([^\s\n]+)/i,
+            /user.*?name.*?:?\s*([^\s\n]+)/i,
+            /username.*?:?\s*([^\s\n]+)/i
+        ];
+        
+        for (const pattern of usernameMatches) {
+            const match = userStory.match(pattern);
+            if (match) {
+                credentials.username = match[1].trim();
+                break;
+            }
+        }
+        
+        // Extract password - look for patterns like "password is kaku"
+        const passwordMatches = [
+            /password.*?is\s*:?\s*([^\s\n]+)/i,
+            /password.*?:?\s*([^\s\n]+)/i,
+            /pass.*?:?\s*([^\s\n]+)/i
+        ];
+        
+        for (const pattern of passwordMatches) {
+            const match = userStory.match(pattern);
+            if (match) {
+                credentials.password = match[1].trim();
+                break;
+            }
+        }
+        
+        return credentials;
     }
 
     async executeStep(page, step) {
         switch (step.action) {
             case 'click':
-                const clickElement = await page.locator(step.selector).first();
-                if (await clickElement.isVisible()) {
-                    await clickElement.click();
+                let clickElement;
+                try {
+                    // Handle :has-text() selector
+                    if (step.selector.includes(':has-text(')) {
+                        const textMatch = step.selector.match(/:has-text\("([^"]+)"\)/);
+                        if (textMatch) {
+                            const buttonText = textMatch[1];
+                            clickElement = page.locator(`button:has-text("${buttonText}"), input[type="submit"][value*="${buttonText}"]`);
+                        } else {
+                            clickElement = page.locator(step.selector);
+                        }
+                    } else {
+                        clickElement = page.locator(step.selector);
+                    }
+                    
+                    await clickElement.first().click({ timeout: 10000 });
                     console.log(`Clicked element: ${step.selector}`);
-                } else {
-                    throw new Error(`Element not found or not visible: ${step.selector}`);
+                } catch (error) {
+                    // Try alternative selectors for login buttons
+                    if (step.description.includes('login')) {
+                        const loginButtons = [
+                            'button[type="submit"]',
+                            'input[type="submit"]',
+                            'button:has-text("Login")',
+                            'button:has-text("Sign in")',
+                            'button:has-text("Submit")',
+                            '.login-btn',
+                            '#login-btn'
+                        ];
+                        
+                        for (const selector of loginButtons) {
+                            try {
+                                await page.locator(selector).first().click({ timeout: 5000 });
+                                console.log(`Clicked login button with selector: ${selector}`);
+                                return;
+                            } catch (e) {
+                                continue;
+                            }
+                        }
+                    }
+                    
+                    // Try alternative selectors for delete buttons
+                    if (step.description.includes('delete')) {
+                        const deleteButtons = [
+                            'button:has-text("Delete")',
+                            'button:has-text("delete")',
+                            'button[class*="delete"]',
+                            'button[id*="delete"]',
+                            '.delete-btn',
+                            '.btn-delete'
+                        ];
+                        
+                        for (const selector of deleteButtons) {
+                            try {
+                                await page.locator(selector).first().click({ timeout: 5000 });
+                                console.log(`Clicked delete button with selector: ${selector}`);
+                                return;
+                            } catch (e) {
+                                continue;
+                            }
+                        }
+                    }
+                    
+                    throw new Error(`Element not found or not clickable: ${step.selector}`);
                 }
                 break;
                 
             case 'fill':
             case 'search':
             case 'login':
-                const fillElement = await page.locator(step.selector).first();
-                if (await fillElement.isVisible()) {
-                    await fillElement.fill(step.value);
+                try {
+                    const fillElement = page.locator(step.selector).first();
+                    await fillElement.fill(step.value, { timeout: 10000 });
                     console.log(`Filled element: ${step.selector} with: ${step.value}`);
-                } else {
-                    throw new Error(`Element not found or not visible: ${step.selector}`);
+                } catch (error) {
+                    // Try alternative selectors based on step description
+                    if (step.description.includes('username')) {
+                        const usernameSelectors = [
+                            'input[name="username"]',
+                            'input[name="user"]',
+                            'input[id="username"]',
+                            'input[id="user"]',
+                            'input[placeholder*="username"]',
+                            'input[placeholder*="user"]',
+                            'input[type="text"]'
+                        ];
+                        
+                        for (const selector of usernameSelectors) {
+                            try {
+                                await page.locator(selector).first().fill(step.value, { timeout: 5000 });
+                                console.log(`Filled username field with selector: ${selector}`);
+                                return;
+                            } catch (e) {
+                                continue;
+                            }
+                        }
+                    }
+                    
+                    if (step.description.includes('password')) {
+                        const passwordSelectors = [
+                            'input[name="password"]',
+                            'input[name="pass"]',
+                            'input[id="password"]',
+                            'input[id="pass"]',
+                            'input[type="password"]'
+                        ];
+                        
+                        for (const selector of passwordSelectors) {
+                            try {
+                                await page.locator(selector).first().fill(step.value, { timeout: 5000 });
+                                console.log(`Filled password field with selector: ${selector}`);
+                                return;
+                            } catch (e) {
+                                continue;
+                            }
+                        }
+                    }
+                    
+                    throw new Error(`Element not found or not fillable: ${step.selector}`);
                 }
                 break;
                 

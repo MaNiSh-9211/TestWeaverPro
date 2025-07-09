@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const testAutomationService = require('./src/services/mockTestAutomation');
+const testAutomationService = require('./src/services/testAutomation');
 const reportGenerator = require('./src/utils/reportGenerator');
 
 // Set the GROQ API key
