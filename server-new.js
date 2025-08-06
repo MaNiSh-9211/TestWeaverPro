@@ -33,7 +33,7 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Test execution endpoint
+// ===============================Test execution endpoint========================================
 app.post('/api/tests/execute', async (req, res) => {
     const { userStory, url } = req.body;
     
@@ -44,8 +44,7 @@ app.post('/api/tests/execute', async (req, res) => {
     }
     
     try {
-        console.log(`Executing test for: ${userStory} on ${url}`);
-        
+            
         // Execute test asynchronously
         const testResult = await testAutomationService.executeTest(userStory, url);
         

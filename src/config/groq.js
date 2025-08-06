@@ -1,13 +1,14 @@
 const logger = require('../utils/logger');
+const fetch = require('node-fetch');
 
 class GroqConfig {
     constructor() {
-        this.apiKey = process.env.GROQ_API_KEY;
+        this.apiKey = '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';
         this.baseUrl = 'https://api.groq.com/openai/v1';
-        this.model = 'mixtral-8x7b-32768';
+        this.model = 'deepseek-r1-distill-llama-70b';
         this.temperature = 0.1; // Deterministic generation
         this.maxTokens = 32768;
-        this.retryAttempts = 3;
+        this.retryAttempts = 2;
         this.retryDelay = 1000;
         
         if (!this.apiKey) {
@@ -42,6 +43,9 @@ class GroqConfig {
         
         for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
             try {
+                logger.info(`Making Groq API request (attempt ${attempt}/${this.retryAttempts}) to ${this.baseUrl}/chat/completions`);
+                logger.info(`Using model: ${this.model}`);
+                
                 const response = await fetch(`${this.baseUrl}/chat/completions`, {
                     method: 'POST',
                     headers: this.getHeaders(),
@@ -50,10 +54,12 @@ class GroqConfig {
                 
                 if (!response.ok) {
                     const error = await response.text();
+                    logger.error(`Groq API error response: ${response.status} - ${error}`);
                     throw new Error(`Groq API error: ${response.status} - ${error}`);
                 }
                 
                 const data = await response.json();
+                logger.info(`Groq API response received successfully`);
                 
                 if (!data.choices || !data.choices[0] || !data.choices[0].message) {
                     throw new Error('Invalid response structure from Groq API');
@@ -61,7 +67,7 @@ class GroqConfig {
                 
                 return data.choices[0].message.content;
             } catch (error) {
-                logger.error(`Groq API request failed (attempt ${attempt}/${this.retryAttempts}):`, error);
+                logger.error(`Groq API request failed (attempt ${attempt}/${this.retryAttempts}):`, error.message);
                 
                 if (attempt === this.retryAttempts) {
                     throw error;

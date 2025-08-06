@@ -23,7 +23,7 @@ class HtmlProcessor {
     
     async fetchHtml(url) {
         try {
-            logger.info(`Fetching HTML from: ${url}`);
+            // logger.info(`=============================================Fetching HTML from:   ${url}==================================================================`);
             
             const response = await fetch(url, {
                 headers: {
@@ -37,11 +37,11 @@ class HtmlProcessor {
             }
             
             const html = await response.text();
-            logger.info(`Fetched HTML content: ${html.length} characters`);
+            logger.info(`=====================================================Fetched HTML content:============================================================== ${html.length} characters`);
             
             return html;
         } catch (error) {
-            logger.error(`Failed to fetch HTML from ${url}:`, error);
+            logger.error(`==================================================Failed to fetch HTML from   ${url}:========================================================`, error);
             throw error;
         }
     }
@@ -49,9 +49,15 @@ class HtmlProcessor {
     async cleanHtml(htmlContent) {
         try {
             logger.info('Cleaning HTML content for token optimization');
-            
+
+            // Remove <style>, <script>, and <link rel="stylesheet"> tags and their contents using regex
+            let strippedHtml = htmlContent
+                .replace(/<script[\s\S]*?<\/script>/gi, '')
+                .replace(/<style[\s\S]*?<\/style>/gi, '')
+                .replace(/<link[^>]*rel=["']stylesheet["'][^>]*>/gi, '');
+
             // Parse HTML with JSDOM
-            const dom = new JSDOM(htmlContent);
+            const dom = new JSDOM(strippedHtml);
             const document = dom.window.document;
             
             // Remove excluded tags
@@ -74,22 +80,131 @@ class HtmlProcessor {
             
             const cleanedHtml = this.minifyHtml(bodyContent);
             
-            logger.info(`HTML cleaned: ${htmlContent.length} → ${cleanedHtml.length} characters`);
+            logger.info(`====================================================HTML cleaned: ${htmlContent.length} → ${cleanedHtml.length} characters=============================================`);
             
             return cleanedHtml;
         } catch (error) {
-            logger.error('Failed to clean HTML:', error);
+            logger.error('=================================================Failed to clean HTML:============================================================', error);
             throw error;
         }
     }
+
+    // async cleanHtml(htmlContent) {
+    // try {
+    //     logger.info('Cleaning HTML content for token optimization');
+
+    //     // Remove <script>, <style>, and <link rel="stylesheet"> and similar tags
+    //     let strippedHtml = htmlContent
+    //         .replace(/<script[\s\S]*?<\/script>/gi, '')
+    //         .replace(/<style[\s\S]*?<\/style>/gi, '')
+    //         .replace(/<link[^>]*rel=["']stylesheet["'][^>]*>/gi, '')
+    //         .replace(/<meta[^>]*>/gi, '')
+    //         .replace(/<noscript[\s\S]*?<\/noscript>/gi, '');
+
+    //     // Parse with JSDOM
+    //     const dom = new JSDOM(strippedHtml);
+    //     const document = dom.window.document;
+
+    //     // Remove unwanted tags
+    //     const excludedTags = [
+    //         'svg', 'canvas', 'iframe', 'template', 'noscript', 'meta',
+    //         'script', 'style', 'link', 'object', 'embed'
+    //     ];
+    //     excludedTags.forEach(tag => {
+    //         document.querySelectorAll(tag).forEach(el => el.remove());
+    //     });
+
+    //     // Clean attributes: remove ones irrelevant for automation
+    //     document.querySelectorAll('*').forEach(el => {
+    //         [...el.attributes].forEach(attr => {
+    //             const attrName = attr.name.toLowerCase();
+    //             if (
+    //                 attrName === 'style' ||
+    //                 attrName.startsWith('on') ||
+    //                 attrName === 'class' ||
+    //                 attrName.startsWith('data-') ||
+    //                 attrName.startsWith('aria-') ||
+    //                 attrName === 'role' ||
+    //                 attrName === 'tabindex'
+    //             ) {
+    //                 el.removeAttribute(attr.name);
+    //             }
+    //         });
+//         });
+
+//         // Remove comments
+//         const walker = document.createTreeWalker(document, dom.window.NodeFilter.SHOW_COMMENT, null, false);
+//         let comment;
+//         while ((comment = walker.nextNode())) {
+//             comment.parentNode.removeChild(comment);
+//         }
+
+//         // Remove empty elements (that have no child nodes and no text content)
+//         document.querySelectorAll('*').forEach(el => {
+//             if (!el.children.length && !el.textContent.trim()) {
+//                 el.remove();
+//             }
+//         });
+
+//         // Normalize whitespace
+//         const body = document.body || document.documentElement;
+//         const normalizeWhitespace = (node) => {
+//             if (node.nodeType === dom.window.Node.TEXT_NODE) {
+//                 node.nodeValue = node.nodeValue.replace(/\s+/g, ' ');
+//             } else {
+//                 node.childNodes.forEach(normalizeWhitespace);
+//             }
+//         };
+//         normalizeWhitespace(body);
+
+//         const bodyContent = body.innerHTML;
+//         const cleanedHtml = this.minifyHtml(bodyContent);
+
+//         logger.info(`✅ HTML cleaned: ${htmlContent.length} → ${cleanedHtml.length} characters`);
+
+//         return cleanedHtml;
+
+//     } catch (error) {
+//         logger.error('❌ Failed to clean HTML:', error);
+//         throw error;
+//     }
+// }
+
     
+    // removeExcludedTags(document) {
+    //     this.excludedTags.forEach(tag => {
+    //         const elements = document.querySelectorAll(tag);
+    //         elements.forEach(element => element.remove());
+    //     });
+    // }
+
+
+    // Completely removes certain tags like <script>, <style>, <meta>, etc. from the DOM
     removeExcludedTags(document) {
-        this.excludedTags.forEach(tag => {
-            const elements = document.querySelectorAll(tag);
-            elements.forEach(element => element.remove());
+    const removedTagStats = {};
+
+    this.excludedTags.forEach(tag => {
+        const elements = document.querySelectorAll(tag);
+        
+        if (elements.length > 0) {
+            removedTagStats[tag] = elements.length;
+        }
+
+        elements.forEach(element => {
+            // Optional: log exact element being removed
+            logger.debug(`==========================Removing <${tag}> element: ${element.outerHTML.slice(0, 200)}...=======================================`);
+            element.remove();
         });
+    });
+
+    if (Object.keys(removedTagStats).length > 0) {
+        logger.info('===========================================================Removed tags summary:=====================================================', removedTagStats);
+    } else {
+        logger.info('=============================================================No excluded tags found for removal.=====================================================');
     }
-    
+}
+
+    // Strips or keeps specific attributes like style, onclick, href, id, etc. from elements
     cleanAttributes(document) {
         const allElements = document.querySelectorAll('*');
         
@@ -115,6 +230,16 @@ class HtmlProcessor {
         });
     }
     
+
+//     remove unnecessary or useless HTML elements from the DOM — specifically, elements that are:
+
+// Visually and semantically empty
+
+// Not interactive or uniquely identifiable
+
+// Not self-closing or void elements like <img>, <br>, etc.
+
+
     removeEmptyElements(document) {
         const elements = document.querySelectorAll('*');
         
@@ -186,7 +311,7 @@ class HtmlProcessor {
             .replace(/>\s+</g, '><') // Remove whitespace between tags
             .replace(/\s+/g, ' ') // Normalize whitespace
             .replace(/\s*=\s*/g, '=') // Remove spaces around equals
-            .replace(/;\s*}/g, ';}') // Minify inline styles
+            // .replace(/;\s*}/g, ';}') // Minify inline styles
             .trim();
     }
     
@@ -196,6 +321,36 @@ class HtmlProcessor {
         return Math.ceil(text.length / 3.5);
     }
     
+
+    // below function returns 
+//     [
+//   {
+//     tagName: "button",
+//     id: "submitBtn",
+//     className: "",
+//     type: "",
+//     name: "",
+//     href: "",
+//     textContent: "Submit",
+//     placeholder: "",
+//     value: "",
+//     ariaLabel: null,
+//     selector: "#submitBtn"
+//   },
+//   {
+//     tagName: "input",
+//     id: "",
+//     className: "",
+//     type: "text",
+//     name: "email",
+//     href: "",
+//     textContent: "",
+//     placeholder: "Enter your email",
+//     value: "",
+//     ariaLabel: null,
+//     selector: 'input[name="email"]'
+//   }
+// ]
     async extractInteractiveElements(htmlContent) {
         try {
             const dom = new JSDOM(htmlContent);

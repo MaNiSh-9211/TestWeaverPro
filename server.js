@@ -49,6 +49,9 @@ app.post('/api/tests/execute', async (req, res) => {
         // Execute test asynchronously
         const testResult = await testAutomationService.executeTest(userStory, url);
         
+        // Filter screenshots to only count step-specific screenshots (excluding general screenshots)
+        const stepScreenshots = testResult.screenshots.filter(screenshot => screenshot.stepNumber);
+        
         res.json({
             success: true,
             testId: testResult.testId,
@@ -58,7 +61,7 @@ app.post('/api/tests/execute', async (req, res) => {
             status: testResult.status,
             duration: testResult.duration,
             steps: testResult.steps.length,
-            screenshots: testResult.screenshots.length,
+            screenshots: stepScreenshots.length,
             errors: testResult.errors.length
         });
         

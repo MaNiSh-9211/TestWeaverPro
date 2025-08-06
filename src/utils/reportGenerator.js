@@ -120,7 +120,7 @@ class ReportGenerator {
                                 <small>Failed</small>
                             </div>
                             <div class="col-6">
-                                <h4 class="text-info">${testResult.screenshots.length}</h4>
+                                <h4 class="text-info">${testResult.screenshots.filter(screenshot => screenshot.stepNumber).length}</h4>
                                 <small>Screenshots</small>
                             </div>
                         </div>
@@ -204,21 +204,34 @@ class ReportGenerator {
     }
 
     renderScreenshots(screenshots) {
+        // Filter out general screenshots (those without stepNumber) and only keep step-specific screenshots
+        const stepScreenshots = screenshots.filter(screenshot => screenshot.stepNumber);
+        
+        if (stepScreenshots.length === 0) {
+            return `
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="fas fa-camera"></i> Screenshots by Test Step</h5>
+                                <p class="text-muted mb-0">Screenshots captured before and after each test action</p>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted">No step-specific screenshots captured.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
         // Group screenshots by step number
         const screenshotsByStep = {};
-        screenshots.forEach(screenshot => {
-            if (screenshot.stepNumber) {
-                if (!screenshotsByStep[screenshot.stepNumber]) {
-                    screenshotsByStep[screenshot.stepNumber] = [];
-                }
-                screenshotsByStep[screenshot.stepNumber].push(screenshot);
-            } else {
-                // Handle initial and final screenshots
-                if (!screenshotsByStep['general']) {
-                    screenshotsByStep['general'] = [];
-                }
-                screenshotsByStep['general'].push(screenshot);
+        stepScreenshots.forEach(screenshot => {
+            if (!screenshotsByStep[screenshot.stepNumber]) {
+                screenshotsByStep[screenshot.stepNumber] = [];
             }
+            screenshotsByStep[screenshot.stepNumber].push(screenshot);
         });
         
         return `
@@ -232,12 +245,11 @@ class ReportGenerator {
                         <div class="card-body">
                             ${Object.keys(screenshotsByStep).map(stepKey => {
                                 const stepScreenshots = screenshotsByStep[stepKey];
-                                const isGeneralStep = stepKey === 'general';
                                 
                                 return `
                                     <div class="step-screenshot-group mb-4">
                                         <h6 class="text-primary mb-3">
-                                            ${isGeneralStep ? 'General Screenshots' : `Step ${stepKey} Screenshots`}
+                                            Step ${stepKey} Screenshots
                                         </h6>
                                         <div class="row">
                                             ${stepScreenshots.map((screenshot, index) => {

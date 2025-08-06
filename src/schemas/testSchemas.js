@@ -1,23 +1,57 @@
 const { z } = require('zod');
 
 // Schema for validating generated selectors
+// const SelectorSchema = z.object({
+//     element: z.string().min(1, 'Element description is required'),
+//     selector: z.string().min(1, 'Selector is required'),
+//     xpath: z.string().optional(),
+//     confidence: z.number().min(0).max(1).optional(),
+//     reasoning: z.string().optional()
+// });
+
 const SelectorSchema = z.object({
-    element: z.string().min(1, 'Element description is required'),
-    selector: z.string().min(1, 'Selector is required'),
-    xpath: z.string().optional(),
-    confidence: z.number().min(0).max(1).optional(),
-    reasoning: z.string().optional()
-});
+  element: z.string().min(1, 'Element description is required'),
+  selector: z.string().min(1, 'Selector is required'),
+  xpath: z.string().min(1).optional(),
+  confidence: z.number().min(0, 'Confidence must be >= 0').max(1, 'Confidence must be <= 1').optional(),
+  reasoning: z.string().min(1, 'Reasoning must not be empty').optional(),
+  interaction_type: z.enum([
+    'click',
+    'hover',
+    'type',
+    'select',
+    'scroll',
+    'submit',
+    'drag',
+    'drop',
+    'check',
+    'uncheck',
+    'focus',
+    'blur'
+  ]),
+  text: z.string().nullable().optional(),
+  shouldContinue: z.boolean().optional().default(true) // New field to control workflow continuation
+}).strict(); // <-- prevents extra fields
 
 // Schema for validating generated test scripts
 const TestActionSchema = z.object({
     action: z.enum(['click', 'type', 'wait', 'navigate', 'scroll', 'hover', 'select', 'check', 'uncheck', 'submit', 'assert']),
-    selector: z.string().min(1, 'Selector is required'),
+    selector: z.string().optional(), // Made optional since some actions like 'navigate' and 'wait' don't need selectors
     value: z.string().optional(),
     waitTime: z.number().optional(),
     description: z.string().min(1, 'Description is required'),
     expected: z.string().optional(),
     timeout: z.number().optional().default(30000)
+}).refine((data) => {
+    // Require selector for actions that need it
+    const actionsRequiringSelector = ['click', 'type', 'hover', 'select', 'check', 'uncheck', 'submit', 'assert'];
+    if (actionsRequiringSelector.includes(data.action) && !data.selector) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Selector is required for actions: click, type, hover, select, check, uncheck, submit, assert",
+    path: ["selector"]
 });
 
 const TestScriptSchema = z.object({
@@ -75,7 +109,7 @@ const TestResultUpdateSchema = z.object({
 });
 
 // Validation helper functions
-const validateSelectors = (selectors) => {
+const validateSelectors = (selectors) => { 
     try {
         return z.array(SelectorSchema).parse(selectors);
     } catch (error) {

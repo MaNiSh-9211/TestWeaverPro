@@ -44,8 +44,11 @@ const WorkflowStateSchema = z.object({
     
     // Timing
     startTime: z.date().optional(),
-    endTime: z.date().optional()
-});
+    endTime: z.date().optional(),
+
+    shouldContinue: z.boolean().optional(),
+
+    });
 
 class WorkflowState {
     constructor(data) {
@@ -60,6 +63,7 @@ class WorkflowState {
         this.generatedSelectors = this.generatedSelectors || [];
         this.executionResults = this.executionResults || [];
         this.startTime = this.startTime || new Date();
+        this.shouldContinue = this.shouldContinue ?? true;
     }
     
     updateStatus(newStatus) {
@@ -204,6 +208,8 @@ class StateFactory {
             executionResults: testResult.executionResults,
             executionTime: testResult.executionTime,
             startTime: testResult.createdAt
+            
+            
         });
     }
 }

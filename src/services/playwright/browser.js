@@ -181,27 +181,53 @@ class BrowserManager {
         }
     }
     
+    // async waitForSelector(selector, options = {}) {
+    //     try {
+    //         if (!this.page) {
+    //             throw new Error('Page not initialized');
+    //         }
+            
+    //         const defaultOptions = {
+    //             timeout: 30000,
+    //             state: 'visible'
+    //         };
+            
+    //         const waitOptions = { ...defaultOptions, ...options };
+            
+    //         const element = await this.page.waitForSelector(selector, waitOptions);
+    //         return element;
+            
+    //     } catch (error) {
+    //         logger.error(`Failed to wait for selector ${selector}:`, error);
+    //         throw error;
+    //     }
+    // }
+
     async waitForSelector(selector, options = {}) {
-        try {
-            if (!this.page) {
-                throw new Error('Page not initialized');
-            }
-            
-            const defaultOptions = {
-                timeout: 30000,
-                state: 'visible'
-            };
-            
-            const waitOptions = { ...defaultOptions, ...options };
-            
-            const element = await this.page.waitForSelector(selector, waitOptions);
-            return element;
-            
-        } catch (error) {
-            logger.error(`Failed to wait for selector ${selector}:`, error);
-            throw error;
+    try {
+        if (!this.page) {
+            throw new Error('Page not initialized');
         }
+
+        const defaultOptions = {
+            timeout: 30000,
+            state: 'visible'
+        };
+
+        const waitOptions = { ...defaultOptions, ...options };
+
+        const isXPath = selector.startsWith('/');
+        const formattedSelector = isXPath ? `xpath=${selector}` : selector;
+
+        const element = await this.page.waitForSelector(formattedSelector, waitOptions);
+        return element;
+
+    } catch (error) {
+        logger.error(`Failed to wait for selector ${selector}:`, error);
+        throw error;
     }
+}
+
     
     async click(selector, options = {}) {
         try {
